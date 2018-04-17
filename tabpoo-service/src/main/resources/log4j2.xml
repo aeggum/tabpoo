@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Properties>
+        <Property name="basePath">/var/log/</Property>
+        <Property name="mainFilename">tabpoo.log</Property>
+        <Property name="accessFilename">tabpoo.log</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="STDOUT" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{ISO8601} %5p %X{transaction-id} [%t] (%F:%L) - %m%n" />
+        </Console>
+
+        <RollingFile name="accessLog" filename="${basePath}${accessFilename}" filePattern="${basePath}${accessFilename}-%d{yyyy-MM-dd'T'HHmmssSSS}.gz">
+            <PatternLayout pattern="%m%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100MB" />
+            </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="${basePath}" maxDepth="1">
+                    <IfFileName glob="${accessFilename}*.gz">
+                        <IfAny>
+                            <IfAccumulatedFileSize exceeds="5GB" />
+                            <IfLastModified age="30d" />
+                        </IfAny>
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <RollingFile name="main" filename="${basePath}${mainFilename}" filePattern="${basePath}${mainFilename}-%d{yyyy-MM-dd'T'HHmmssSSS}.gz">
+            <!-- PATTERN: date priority [thread] (file:line) - message\n -->
+            <PatternLayout pattern="%d{ISO8601} %5p %X{transaction-id} [%t] (%F:%L) - %m%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100MB" />
+            </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="${basePath}" maxDepth="1">
+                    <IfFileName glob="${mainFilename}*.gz">
+                        <IfAny>
+                            <IfAccumulatedFileSize exceeds="5GB" />
+                            <IfLastModified age="30d" />
+                        </IfAny>
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Logger name="accessLogger" level="info">
+            <AppenderRef ref="accessLog" />
+        </Logger>
+        <Logger name="main" level="info">
+            <AppenderRef ref="main" />
+        </Logger>
+        <Root level="info">
+            <AppenderRef ref="STDOUT" />
+        </Root>
+    </Loggers>
+</Configuration>
