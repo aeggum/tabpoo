@@ -1,0 +1,4 @@
+<div class="btn-group">
+  <div *ngFor="let option of options" (click)="onSelection(option)" 
+     [class.selected]="option == selection" class="bristol-option btn btn-default">{{option}}</div>
+</div>
