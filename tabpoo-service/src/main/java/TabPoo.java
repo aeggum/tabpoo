@@ -57,15 +57,10 @@ public class TabPoo {
    }
 
    public static void main(String[] args) throws Exception {
-      KeyPairGenerator keyGen = KeyPairGenerator.getInstance(RSA);
-      keyGen.initialize(512, random);
-      signingKeyPair = keyGen.generateKeyPair();
-      kid = DigestUtils.sha1Hex("tabpoo-app");
-
-      enableCORS("*", "GET, POST, PUT, DELETE", "Origin, Accept,  X-Auth-Token, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, Authorization");
+      setup();
 
       post("/authenticate", TabPoo::authenticate, gson::toJson);
-      post("/poolog", TabPoo::poolog, gson::toJson);
+      post("/poolog", TabPoo::logpoo, gson::toJson);
       post("/users", TabPoo::createUser, gson::toJson);
       get("/poolog", TabPoo::getLogsForUser, gson::toJson);
 
@@ -76,28 +71,13 @@ public class TabPoo {
       Runtime.getRuntime().addShutdownHook(new ShutdownHook());
    }
 
-   private static void enableCORS(final String origin, final String methods, final String headers) {
+   private static void setup() throws Exception {
+      KeyPairGenerator keyGen = KeyPairGenerator.getInstance(RSA);
+      keyGen.initialize(512, random);
+      signingKeyPair = keyGen.generateKeyPair();
+      kid = DigestUtils.sha1Hex("tabpoo-app");
 
-      options("/*", (request, response) -> {
-
-         String accessControlRequestHeaders = request.headers("Access-Control-Request-Headers");
-         if (accessControlRequestHeaders != null) {
-            response.header("Access-Control-Allow-Headers", accessControlRequestHeaders);
-         }
-
-         String accessControlRequestMethod = request.headers("Access-Control-Request-Method");
-         if (accessControlRequestMethod != null) {
-            response.header("Access-Control-Allow-Methods", accessControlRequestMethod);
-         }
-
-         return "OK";
-      });
-
-      before((request, response) -> {
-         response.header("Access-Control-Allow-Origin", origin);
-         response.header("Access-Control-Request-Method", methods);
-         response.header("Access-Control-Allow-Headers", headers);
-      });
+      enableCORS();
    }
 
    static class ShutdownHook extends Thread {
@@ -202,34 +182,7 @@ public class TabPoo {
       return responseDataMap;
    }
 
-   private static JSONWebTokenHeader getTokenHeader() {
-      JSONWebTokenHeader header = new JSONWebTokenHeader();
-      header.kid = kid;
-      header.alg = ALG;
-      return header;
-   }
-
-   private static String getEncodedToken(WebToken token) {
-      try {
-         JSONWebTokenHeader header = getTokenHeader();
-         String part1 = Base64.getUrlEncoder().encodeToString(gson.toJson(header).getBytes());
-         String part2 = Base64.getUrlEncoder().encodeToString(gson.toJson(token).getBytes());
-         String signingString = part1 + "." + part2;
-
-         Signature rsa = Signature.getInstance(SIGNATURE_ALGORITHM);
-         rsa.initSign(signingKeyPair.getPrivate());
-         rsa.update(signingString.getBytes());
-         byte[] signature = rsa.sign();
-         String base64Signature = Base64.getUrlEncoder().encodeToString(signature);
-
-         return signingString + "." + base64Signature;
-      } catch (Exception ex) {
-         logger.error("Could not sign JWT {}", token, ex);
-         throw new RuntimeException("Error signing JWT");
-      }
-   }
-
-   public static Object poolog(Request request, Response response) {
+   public static Object logpoo(Request request, Response response) {
       JSONWebToken token = getValidAuthorizationToken(request, response);
 
       if (token == null) {
@@ -257,6 +210,33 @@ public class TabPoo {
       return Collections.singletonMap("status", "Success");
    }
 
+   private static JSONWebTokenHeader getTokenHeader() {
+      JSONWebTokenHeader header = new JSONWebTokenHeader();
+      header.kid = kid;
+      header.alg = ALG;
+      return header;
+   }
+
+   private static String getEncodedToken(WebToken token) {
+      try {
+         JSONWebTokenHeader header = getTokenHeader();
+         String part1 = Base64.getUrlEncoder().encodeToString(gson.toJson(header).getBytes());
+         String part2 = Base64.getUrlEncoder().encodeToString(gson.toJson(token).getBytes());
+         String signingString = part1 + "." + part2;
+
+         Signature rsa = Signature.getInstance(SIGNATURE_ALGORITHM);
+         rsa.initSign(signingKeyPair.getPrivate());
+         rsa.update(signingString.getBytes());
+         byte[] signature = rsa.sign();
+         String base64Signature = Base64.getUrlEncoder().encodeToString(signature);
+
+         return signingString + "." + base64Signature;
+      } catch (Exception ex) {
+         logger.error("Could not sign JWT {}", token, ex);
+         throw new RuntimeException("Error signing JWT");
+      }
+   }
+
    private static JSONWebToken getValidAuthorizationToken(final Request request, final Response response) {
       String givenTokenString = request.headers("Authorization");
 
@@ -276,5 +256,28 @@ public class TabPoo {
          logger.info("Invalid JWT: was null or did not contain 3 parts.  Authorization header was {}", givenTokenString);
          return null;
       }
+   }
+
+   private static void enableCORS() {
+      options("/*", (request, response) -> {
+
+         String accessControlRequestHeaders = request.headers("Access-Control-Request-Headers");
+         if (accessControlRequestHeaders != null) {
+            response.header("Access-Control-Allow-Headers", accessControlRequestHeaders);
+         }
+
+         String accessControlRequestMethod = request.headers("Access-Control-Request-Method");
+         if (accessControlRequestMethod != null) {
+            response.header("Access-Control-Allow-Methods", accessControlRequestMethod);
+         }
+
+         return "OK";
+      });
+
+      before((request, response) -> {
+         response.header("Access-Control-Allow-Origin", "*");
+         response.header("Access-Control-Request-Method", "GET, POST, PUT, DELETE");
+         response.header("Access-Control-Allow-Headers", "Origin, Accept,  X-Auth-Token, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, Authorization");
+      });
    }
 }
